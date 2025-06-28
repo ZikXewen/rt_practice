@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:17-alpine # alpine cuz my laptop is running out of mem :(
+    restart: unless-stopped
+    shm_size: 128mb
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+  rmq:
+    image: rabbitmq:3-alpine
+    restart: unless-stopped
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RMQ_PASS}
+    volumes:
+      - rmqdata:/var/lib/rabbitmq
+volumes:
+  dbdata:
+  rmqdata:
