@@ -1,6 +1,7 @@
 import fetcher from "@/lib/fetcher";
 import { Quote } from "@prisma/client";
 import useSWRInfinite from "swr/infinite";
+import QuoteCard from "./QuoteCard";
 
 const PAGE_SIZE = 10;
 
@@ -19,24 +20,22 @@ export default function QuotesList() {
   } = useSWRInfinite<{ data: Quote[] }>(getKey, fetcher);
   const data = rawData?.map(({ data }) => data);
   const quotes = data?.flat() || [];
-  const isEnd =
-    !quotes.length || ((data && data?.at(-1)?.length) || 0) < PAGE_SIZE;
+  const isEnd = !quotes.length || (data?.at(-1)?.length || 0) < PAGE_SIZE;
   const isLoading = isValidating && data?.length === size;
 
   return (
     <div>
-      <div>
+      <div className="flex flex-col gap-3">
         {quotes.map((q) => (
-          <div>
-            <p>{q.text}</p>
-            <p>{q.author}</p>
-            <p>{q.status}</p>
-            <p>{q.rating}</p>
-            <p>{new Date(q.submittedAt).toTimeString()}</p>
-          </div>
+          <QuoteCard {...q} key={q.id}/>
         ))}
       </div>
-      <button disabled={isLoading || isEnd} onClick={() => setSize(size + 1)}>
+      <button
+        hidden={isEnd}
+        disabled={isLoading}
+        onClick={() => setSize(size + 1)}
+        className="mt-3 w-full p-2 bg-gray-800 shadow-md rounded-lg border border-gray-700 hover:bg-gray-700 cursor-pointer disabled:cursor-progress transition-colors duration-200"
+      >
         Show More
       </button>
     </div>
