@@ -8,3 +8,9 @@ What am I practicing here?
 - Docker & Docker Compose
 - NextJS in TS with Prisma
 - Postgres
+
+What are not covered?
+
+- Grader's grading
+- TLS connections
+- Connection Pooling
