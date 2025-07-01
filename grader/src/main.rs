@@ -10,7 +10,7 @@ async fn main() -> anyhow::Result<()> {
     let db_user = std::env::var("DB_USER")?;
     let db_pass = std::env::var("DB_PASS")?;
     let db_name = std::env::var("DB_NAME")?;
-    let db_addr = format!("postgres://{db_user}:{db_pass}@{db_host}/{db_name}");
+    let db_addr = format!("postgresql://{db_user}:{db_pass}@{db_host}/{db_name}");
 
     let rmq_host = std::env::var("RMQ_HOST")?;
     let rmq_user = std::env::var("RMQ_USER")?;
@@ -74,9 +74,11 @@ async fn handle_rating(
     rmq_addr: &str,
     mut rx: futures::channel::mpsc::UnboundedReceiver<String>,
 ) -> anyhow::Result<()> {
-    let (client, _connection) = tokio_postgres::connect(&db_addr, tokio_postgres::NoTls).await?;
+    let (client, connection) = tokio_postgres::connect(&db_addr, tokio_postgres::NoTls).await?;
     let client = Arc::new(client);
+    let handle = tokio::spawn(connection);
     log::info!("db rating connection established");
+
     let rmq_connection =
         lapin::Connection::connect(&rmq_addr, lapin::ConnectionProperties::default()).await?;
     let channel = rmq_connection.create_channel().await?;
@@ -86,10 +88,14 @@ async fn handle_rating(
     while let Some(id) = rx.next().await {
         let client = client.clone();
         let channel = channel.clone();
-        tokio::spawn(rate(client, channel, id));
+        tokio::spawn(async move {
+            if let Err(err) = rate(client, channel, id.clone()).await {
+                log::warn!("rating quote id {id} errored: {err}");
+            }
+        });
     }
 
-    Ok(())
+    Ok(handle.await??)
 }
 
 async fn rate(
@@ -97,36 +103,39 @@ async fn rate(
     channel: Arc<lapin::Channel>,
     id: String,
 ) -> anyhow::Result<()> {
-    let id = id.parse::<u32>()?;
+    let id = id.parse::<i32>()?;
     let row = client
-        .query_one("SELECT text, status FROM Quote WHERE id=$1", &[&id])
+        .query_one("SELECT text, status FROM \"Quote\" WHERE id=$1", &[&id])
         .await?;
 
     let _text: String = row.get(0);
-    let status: String = row.get(1);
+    let status: Status = row.get(1);
 
-    log::info!("status: {status}");
+    if status != Status::PENDING {
+        log::warn!("tried to rate a non-pending quote id: {id}, status: {status:?}");
+    }
 
     // simulate rating procedure
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     client
         .execute(
-            "UPDATE Quote SET status=$1, rating=$2 WHERE id=$3",
+            "UPDATE \"Quote\" SET status=$1, rating=$2 WHERE id=$3",
             &[&status, &0, &id],
         )
         .await?;
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-    let rating: u32 = rand::random_range(0..=5);
+
+    let rating: i32 = rand::random_range(0..=5);
     let row = client
         .query_one(
-            "UPDATE Quote SET status=$1, rating=$2 WHERE id=$3 RETURNING id, status, rating",
-            &[&status, &rating, &id],
+            "UPDATE \"Quote\" SET status=$1, rating=$2 WHERE id=$3 RETURNING id, status, rating",
+            &[&Status::RATED, &rating, &id],
         )
         .await?;
 
-    let id: u32 = row.get(0);
-    let status: String = row.get(1);
-    let rating: String = row.get(2);
+    let id: i32 = row.get(0);
+    let status: Status = row.get(1);
+    let rating: i32 = row.get(2);
 
     // let payload = serde_json::json!({"id": id, "status": status, "rating": rating}).to_string();
     // channel
@@ -140,4 +149,19 @@ async fn rate(
     //     .await?;
 
     Ok(())
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    tokio_postgres::types::FromSql,
+    tokio_postgres::types::ToSql,
+    serde::Serialize,
+)]
+enum Status {
+    PENDING,
+    RATED,
+    ERROR,
+    DELETED,
 }
