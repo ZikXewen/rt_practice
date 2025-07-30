@@ -85,6 +85,14 @@ async fn handle_rating(
     let channel = Arc::new(channel);
     log::info!("rmq connection established");
 
+    channel
+        .queue_declare(
+            "quote.update",
+            lapin::options::QueueDeclareOptions::default(),
+            lapin::types::FieldTable::default(),
+        )
+        .await?;
+
     while let Some(id) = rx.next().await {
         let client = client.clone();
         let channel = channel.clone();
@@ -137,16 +145,16 @@ async fn rate(
     let status: Status = row.get(1);
     let rating: i32 = row.get(2);
 
-    // let payload = serde_json::json!({"id": id, "status": status, "rating": rating}).to_string();
-    // channel
-    //     .basic_publish(
-    //         "",
-    //         "quote.update",
-    //         lapin::options::BasicPublishOptions::default(),
-    //         payload.as_bytes(),
-    //         lapin::BasicProperties::default(),
-    //     )
-    //     .await?;
+    let payload = serde_json::json!({"id": id, "status": status, "rating": rating}).to_string();
+    channel
+        .basic_publish(
+            "",
+            "quote.update",
+            lapin::options::BasicPublishOptions::default(),
+            payload.as_bytes(),
+            lapin::BasicProperties::default(),
+        )
+        .await?;
 
     Ok(())
 }
