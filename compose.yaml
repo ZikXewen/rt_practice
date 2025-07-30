@@ -1,4 +1,14 @@
 services:
+  grader:
+    build: ./grader
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME}
+      RMQ_USER: ${RMQ_USER}
+      RMQ_PASS: ${RMQ_PASS}
+      DB_HOST: db
+      RMQ_HOST: rmq
   db:
     image: postgres:17-alpine # alpine cuz my laptop is running out of mem :(
     restart: unless-stopped
