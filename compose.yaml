@@ -3,12 +3,12 @@ services:
     build: ./rt
     ports:
       - "80:80"
-      - "443:443"
-      - "443:443/udp"
     environment:
       RMQ_USER: ${RMQ_USER}
       RMQ_PASS: ${RMQ_PASS}
       RMQ_HOST: rmq
+      RT_HOST: ${RT_HOST}
+      RT_PORT: 80
   grader:
     build: ./grader
     environment:

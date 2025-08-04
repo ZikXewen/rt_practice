@@ -12,8 +12,8 @@ async fn main() -> anyhow::Result<()> {
     let rmq_pass = std::env::var("RMQ_PASS")?;
     let rmq_addr = format!("amqp://{rmq_user}:{rmq_pass}@{rmq_host}");
 
-    let server_host = std::env::var("SERVER_HOST")?;
-    let server_port = std::env::var("SERVER_PORT")?;
+    let server_host = std::env::var("RT_HOST")?;
+    let server_port = std::env::var("RT_PORT")?;
     let server_addr = format!("{server_host}:{server_port}");
 
     let replayers: Arc<Replayers> = Arc::default();
@@ -70,7 +70,7 @@ type Replayers = dashmap::DashMap<i32, Arc<Replayer>>;
 trait ReplayersExt {
     fn add_replayer(&self, id: i32) -> Arc<Replayer>;
     fn get_replayer(&self, id: i32) -> Arc<Replayer>;
-    async fn get_stream(&self, id: i32) -> impl futures::Stream<Item = Payload>;
+    async fn get_stream(&self, id: i32) -> futures::channel::mpsc::UnboundedReceiver<Payload>;
     async fn add_data(&self, payload: Payload);
 }
 
@@ -92,7 +92,7 @@ impl ReplayersExt for Replayers {
             .unwrap_or(self.add_replayer(id))
     }
 
-    async fn get_stream(&self, id: i32) -> impl futures::Stream<Item = Payload> {
+    async fn get_stream(&self, id: i32) -> futures::channel::mpsc::UnboundedReceiver<Payload> {
         let replayer = self.get_replayer(id);
         let (mut tx, rx) = futures::channel::mpsc::unbounded::<Payload>();
         replayer.txs.write().await.push(tx.clone());
@@ -155,7 +155,7 @@ async fn handle_server(server_addr: String, replayers: Arc<Replayers>) -> anyhow
         .allow_methods(tower_http::cors::Any);
     let router = axum::Router::new()
         .route("/", axum::routing::get(|| async { "OK" })) // health check
-        .route("/:id", axum::routing::get(handle_sse))
+        .route("/{id}", axum::routing::get(handle_sse))
         .with_state(replayers)
         .layer(cors);
     let listener = tokio::net::TcpListener::bind(server_addr).await?;
