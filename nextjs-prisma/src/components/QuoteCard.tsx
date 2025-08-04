@@ -1,4 +1,4 @@
-import { Quote } from "@prisma/client";
+import type { Quote } from "@prisma/client";
 
 export default function QuoteCard({
   text,

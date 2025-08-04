@@ -4,7 +4,9 @@ import { ListSchema, SubmitSchema } from "@/lib/schema";
 import { type NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const parsed = ListSchema.safeParse(Object.fromEntries(req.nextUrl.searchParams));
+  const parsed = ListSchema.safeParse(
+    Object.fromEntries(req.nextUrl.searchParams),
+  );
   if (!parsed.success) {
     console.error(parsed.error);
     return badRequest();

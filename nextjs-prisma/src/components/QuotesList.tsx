@@ -1,5 +1,7 @@
+"use client"
+
 import fetcher from "@/lib/fetcher";
-import { Quote } from "@prisma/client";
+import type { Quote } from "@prisma/client";
 import useSWRInfinite from "swr/infinite";
 import QuoteCard from "./QuoteCard";
 

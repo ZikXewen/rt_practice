@@ -1,9 +1,10 @@
+"use client";
+
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { mutate } from "swr";
 
 export default function QuoteForm() {
-  `use client`;
   const quoteRef = useRef<HTMLInputElement | null>(null);
   const authorRef = useRef<HTMLInputElement | null>(null);
   const [submitting, setSubmitting] = useState(false);
